@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fake News Detector</title>
+  <link rel="stylesheet" href="style.css">
+<style>
+  textarea {
+    width: 100%;
+    height: 140px;
+    border-radius: 10px;
+    border: 2px solid #2ae1e1; /* A slightly softer border color */
+    padding: 12px 15px;
+    font-size: 15px;
+    resize: none;
+    outline: none;
+    box-sizing: border-box; /* Good practice to include padding in width */
+    
+    /* Smooth transition for the focus effect */
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  /* --- Animation Idea Added --- */
+  /* Adds a blue glow when the user clicks in */
+  textarea:focus {
+    border-color: #007bff; /* Matches your button color */
+    box-shadow: 0 0 8px rgba(0, 123, 255, 0.5);
+  }
+
+  #result {
+    margin-top: 25px;
+    font-size: 1.25rem; /* 20px */
+    font-weight: 700; /* Bolder */
+    text-align: center; /* Center the result */
+  }
+
+  /* --- Styling for different results --- */
+  /* You can add these classes with JavaScript */
+  .real { color: #28a745; } /* Green */
+  .fake { color: #dc3545; } /* Red */
+  .uncertain { color: #ffc107; } /* Orange/Yellow */
+
+  .progress {
+    width: 100%;
+    background: #e9ecef; /* A light grey background */
+    height: 12px; /* Made it a bit thicker */
+    border-radius: 6px;
+    margin-top: 15px;
+    overflow: hidden; /* Ensures the bar stays inside the rounded corners */
+  }
+
+  .bar {
+    height: 100%;
+    border-radius: 6px;
+    width: 0%; /* Starts at 0, ready to be animated by JS */
+    
+    /* --- Animation Idea Added --- */
+    /* This makes the bar fill up smoothly */
+    transition: width 1s ease-out; 
+    
+    /* Default/Uncertain color */
+    background-color: #ffc107; 
+  }
+
+  /* --- Classes for the bar color --- */
+  .bar.real { background-color: #28a745; }
+  .bar.fake { background-color: #dc3545; }
+
+</style>
+</head>
+<body>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="detect.html">Detector</a>
+    <a href="about.html">About</a>
+    <a href="contact.html">Contact</a>
+  </nav>
+
+  <div class="container">
+    <h1>📰 Fake News Detector</h1>
+    <p>Enter any news text or headline below to check if it’s Real or Fake.</p>
+
+    <textarea id="newsInput" placeholder="Paste or type news text here..."></textarea>
+    <br>
+ <button id="analyzeButton" onclick="analyzeNews()">
+  <span class="button-text">Analyze</span>
+</button>
+
+    <div id="result"></div>
+    <div class="progress"><div class="bar" id="bar"></div></div>
+  </div>
+<body>
+  <div class="main-content">
+    </div>
+
+  <div class="footer">
+    © 2025 Fake News Detection Project | Built with HTML, CSS, JS
+  </div>
+</body>
+<script>
+  const fakeKeywords = {
+    "aliens": 3, "miracle": 4, "lottery": 3, "click here": 4,
+    "shocking": 3, "secret": 2, "viral": 3, "hoax": 4,
+    "magic": 2, "conspiracy": 3, "fake": 3, "guaranteed": 3,
+    "cure": 3, "free money": 3, "lotto": 2
+  };
+  const realKeywords = {
+    "government": 3, "education": 2, "policy": 3, "minister": 2,
+    "research": 3, "university": 2, "scientists": 3, "official": 2,
+    "economy": 3, "sports": 2, "law": 3, "parliament": 3,
+    "technology": 2, "students": 2, "health": 2
+  };
+
+  // Function to smoothly animate the progress bar and scores
+  function animateResults(finalRealP, finalFakeP, resultClass) {
+    const resultDiv = document.getElementById("result");
+    const progressBar = document.getElementById("bar");
+    const duration = 1500; // 1.5 seconds for the animation
+    let startTime = null;
+
+    // Determine the primary percentage and bar color/class
+    let primaryP = (resultClass === 'real' ? finalRealP : finalFakeP);
+    let barColorClass = resultClass;
+
+    // Reset bar classes
+    progressBar.classList.remove('real', 'fake', 'uncertain');
+    progressBar.classList.add(barColorClass);
+
+    function step(timestamp) {
+      if (!startTime) startTime = timestamp;
+      const progress = timestamp - startTime;
+      
+      // Calculate current percentage (e.g., from 0% to finalP)
+      const currentP = Math.min(1, progress / duration) * primaryP;
+      
+      // Calculate the current score for display
+      const currentRealP = (resultClass === 'real' || resultClass === 'uncertain') 
+                           ? Math.min(finalRealP, (progress / duration) * finalRealP) 
+                           : (1 - Math.min(1, progress / duration)) * finalRealP; // Optional: animate down
+      const currentFakeP = (resultClass === 'fake' || resultClass === 'uncertain') 
+                           ? Math.min(finalFakeP, (progress / duration) * finalFakeP)
+                           : (1 - Math.min(1, progress / duration)) * finalFakeP; // Optional: animate down
+      
+
+      // Set the width of the progress bar
+      progressBar.style.width = `${currentP}%`;
+
+      // Update the displayed scores
+      let emoji = "";
+      let headline = "";
+      if (resultClass === 'real') { emoji = "✅"; headline = "Real News Detected"; }
+      else if (resultClass === 'fake') { emoji = "❌"; headline = "Fake News Detected"; }
+      else { emoji = "🤔"; headline = "Uncertain Result"; }
+      
+      // Update the result text with the animated scores
+      resultDiv.innerHTML = `${emoji} <span class="${resultClass}">${headline}</span>
+                           <br>Real Score: ${currentRealP.toFixed(1)}% | Fake Score: ${currentFakeP.toFixed(1)}%`;
+
+
+      if (progress < duration) {
+        window.requestAnimationFrame(step);
+      } else {
+         // Ensure final display values are exactly right at the end
+         progressBar.style.width = `${primaryP}%`;
+         resultDiv.innerHTML = `${emoji} <span class="${resultClass}">${headline}</span>
+                           <br>Real Score: ${finalRealP.toFixed(1)}% | Fake Score: ${finalFakeP.toFixed(1)}%`;
+      }
+    }
+
+    window.requestAnimationFrame(step);
+  }
+
+
+  function analyzeNews() {
+    const text = document.getElementById("newsInput").value.toLowerCase();
+    const resultDiv = document.getElementById("result");
+    const button = document.getElementById('analyzeButton');
+    const bar = document.getElementById('bar');
+    
+    // Clear previous results and set a starting point
+    resultDiv.innerHTML = "";
+    bar.style.width = "0%";
+    bar.classList.remove('real', 'fake', 'uncertain');
+
+    if (!text.trim()) {
+      resultDiv.innerHTML = "⚠️ **Please enter some news text.**";
+      return;
+    }
+    
+    // 1. START LOADING ANIMATION
+    button.classList.add('loading');
+
+    // 2. RUN ANALYSIS LOGIC
+    let fakeScore = 0, realScore = 0;
+    for (const [w, wt] of Object.entries(fakeKeywords)) if (text.includes(w)) fakeScore += wt;
+    for (const [w, wt] of Object.entries(realKeywords)) if (text.includes(w)) realScore += wt;
+
+    const total = fakeScore + realScore || 1;
+    const finalFakeP = (total === 0) ? 50.0 : ((fakeScore / total) * 100);
+    const finalRealP = (total === 0) ? 50.0 : ((realScore / total) * 100);
+    
+    let resultClass = "";
+    if (finalFakeP > finalRealP) {
+      resultClass = 'fake';
+    } else if (finalRealP > finalFakeP) {
+      resultClass = 'real';
+    } else {
+      resultClass = 'uncertain';
+    }
+    
+    // 3. WAIT for the "analysis" to finish (simulated 2 seconds)
+    setTimeout(() => {
+      
+      // 4. STOP LOADING ANIMATION
+      button.classList.remove('loading');
+
+      // 5. START RESULT ANIMATION
+      animateResults(finalRealP, finalFakeP, resultClass);
+
+    }, 2000); // 2000ms = 2 seconds simulation time
+  }
+</script></body>
+</html>
